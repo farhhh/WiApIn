@@ -85,23 +85,28 @@ class App(ctk.CTk):
         self.scroll_frame = ctk.CTkScrollableFrame(self.main_container, fg_color="transparent")
         self.scroll_frame.pack(expand=True, fill="both", padx=5, pady=5)
 
-        # --- Создаем HTML виджет (ВАЖНО: До биндов и меню!) ---
+        # --- Создаем HTML виджет ---
         self.html_view = HTMLLabel(
             self.main_container, 
             html="", 
-            background="#2b2b2b",
-            selectbackground="#1f538d", # Цвет заливки выделения (синий)
-            selectforeground="white"    # Цвет текста при выделении
+            background="#2b2b2b"
         )
         
         # Настраиваем контекстное меню
         self.copy_menu = tk.Menu(self, tearoff=0, bg="#333333", fg="white", borderwidth=0)
         self.copy_menu.add_command(label="Копировать", command=self._copy_html_text)
 
-        # Привязываем события (Клавиатура + Правая кнопка мыши)
+        # Стандартные бинды (английская раскладка + системный ивент)
         self.html_view.bind("<Control-c>", self._copy_html_text)
         self.html_view.bind("<Control-C>", self._copy_html_text)
+        self.html_view.bind("<<Copy>>", self._copy_html_text)
         self.html_view.bind("<Button-3>", self._show_context_menu)
+
+        # Универсальный перехватчик для других раскладок (в т.ч. русской)
+        self.html_view.bind("<Control-KeyPress>", self._fallback_copy)
+
+        # Блокируем ввод текста с клавиатуры
+        self.html_view.bind("<Key>", self._prevent_typing)
 
         self.show_welcome()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -126,6 +131,21 @@ class App(ctk.CTk):
             # Если выделения нет, просто ничего не делаем
             pass
         return "break" # Это останавливает дальнейшее распространение события
+
+    def _fallback_copy(self, event):
+        # Tkinter называет русскую 'с' как 'cyrillic_es'
+        # Код 67 - это физическое расположение кнопки C на Windows, 54 - на Linux
+        keysym = getattr(event, 'keysym', '').lower()
+        keycode = getattr(event, 'keycode', 0)
+        
+        if keysym == 'cyrillic_es' or keycode in (67, 54):
+            return self._copy_html_text(event)
+
+    def _prevent_typing(self, event):
+        # Разрешаем работу Ctrl (для копирования) и кнопок навигации по тексту
+        if event.state & 4 or event.keysym in ('Up', 'Down', 'Left', 'Right', 'Home', 'End', 'Prior', 'Next'):
+            return None
+        return "break" # Блокируем всё остальное (печатание текста)
 
     def clear_main_area(self):
         self.top_bar.pack_forget()
@@ -360,21 +380,38 @@ class App(ctk.CTk):
         label.destroy()
         self.scroll_frame.pack_forget()
         self.html_view.pack(expand=True, fill="both", padx=10, pady=10)
+        
+        # 1. Загружаем сам контент
         self.html_view.set_html(html)
         
-        # Включаем возможность взаимодействия
-        self.html_view.configure(state="normal")
-        # Фокусируемся на виджете, чтобы он сразу принимал нажатия клавиш
+        # 2. Жёстко задаем цвета выделения самому виджету
+        self.html_view.configure(
+            state="normal",
+            selectbackground="#005fb8",  # Насыщенный синий (Windows style)
+            selectforeground="white",    # Белый текст
+            inactiveselectbackground="#005fb8", # Цвет сохраняется, даже если кликнуть в другое место
+            insertofftime=0              # Убираем мигающий курсор, раз мы только читаем
+        )
+        
+        # 3. Перенастраиваем тег "sel" (выделение)
+        # set_html мог его затереть, поэтому прописываем заново
+        self.html_view.tag_configure("sel", background="#005fb8", foreground="white")
+        
+        # 4. ВАЖНО: Поднимаем тег выделения на самый верхний слой.
+        # Это заставит выделение рисоваться ПОВЕРХ фоновых цветов HTML-кода.
+        self.html_view.tag_raise("sel")
+        
+        # Переводим фокус для моментальной готовности к Ctrl+C
         self.html_view.focus_set()
 
     def on_closing(self):
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-        self.destroy()
-
-    def show_error(self, text):
-        self.clear_main_area()
-        self.scroll_frame.pack(expand=True, fill="both")
-        ctk.CTkLabel(self.scroll_frame, text=text, text_color="#ff6b6b").pack(pady=20)
+        """Этот метод вызывается при закрытии окна"""
+        try:
+            # Удаляем временную папку с кэшем
+            shutil.rmtree(self.temp_dir, ignore_errors=True)
+        except:
+            pass
+        self.destroy() # Закрываем само окно
 
 if __name__ == "__main__":
     ctk.set_appearance_mode("dark") 
