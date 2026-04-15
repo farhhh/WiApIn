@@ -9,6 +9,8 @@ $paths = @(
     "C:\Program Files (x86)",
     "C:\Users",
     "C:\ProgramData\Autodesk",
+    "C:\Autodesk",
+    "C:\autodesk",
     "C:\ProgramData\Package Cache",
     "$env:TEMP"
 )
