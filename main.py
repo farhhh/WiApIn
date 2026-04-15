@@ -58,7 +58,7 @@ class App(ctk.CTk):
         # --- Панель управления ---
         self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        
+            
         self.logo_label = ctk.CTkLabel(self.sidebar, text="WiApIn", font=ctk.CTkFont(size=24, weight="bold"))
         self.logo_label.pack(pady=30)
 
@@ -74,7 +74,7 @@ class App(ctk.CTk):
         # --- Контент ---
         self.main_container = ctk.CTkFrame(self, corner_radius=15)
         self.main_container.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
-        
+            
         self.top_bar = ctk.CTkFrame(self.main_container, fg_color="transparent", height=50)
         self.top_bar.pack(fill="x", padx=10, pady=5)
         self.top_bar.pack_forget()
@@ -85,19 +85,47 @@ class App(ctk.CTk):
         self.scroll_frame = ctk.CTkScrollableFrame(self.main_container, fg_color="transparent")
         self.scroll_frame.pack(expand=True, fill="both", padx=5, pady=5)
 
-        self.html_view = HTMLLabel(self.main_container, html="", background="#2b2b2b")
+        # --- Создаем HTML виджет (ВАЖНО: До биндов и меню!) ---
+        self.html_view = HTMLLabel(
+            self.main_container, 
+            html="", 
+            background="#2b2b2b",
+            selectbackground="#1f538d", # Цвет заливки выделения (синий)
+            selectforeground="white"    # Цвет текста при выделении
+        )
+        
+        # Настраиваем контекстное меню
+        self.copy_menu = tk.Menu(self, tearoff=0, bg="#333333", fg="white", borderwidth=0)
+        self.copy_menu.add_command(label="Копировать", command=self._copy_html_text)
+
+        # Привязываем события (Клавиатура + Правая кнопка мыши)
         self.html_view.bind("<Control-c>", self._copy_html_text)
         self.html_view.bind("<Control-C>", self._copy_html_text)
+        self.html_view.bind("<Button-3>", self._show_context_menu)
 
         self.show_welcome()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def _show_context_menu(self, event):
+        try:
+            # Показываем меню только если есть выделенный текст
+            if self.html_view.tag_ranges("sel"):
+                self.copy_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.copy_menu.grab_release()
 
     def _copy_html_text(self, event=None):
         try:
-            selected = self.html_view.selection_get()
-            self.clipboard_clear()
-            self.clipboard_append(selected)
-        except: pass
+            # Ищем выделенный текст напрямую через стандартный тег tkinter "sel"
+            selected_text = self.html_view.get("sel.first", "sel.last")
+            if selected_text:
+                self.clipboard_clear()
+                self.clipboard_append(selected_text)
+                self.update() # Важно для синхронизации с системным буфером
+        except tk.TclError:
+            # Если выделения нет, просто ничего не делаем
+            pass
+        return "break" # Это останавливает дальнейшее распространение события
 
     def clear_main_area(self):
         self.top_bar.pack_forget()
@@ -225,15 +253,28 @@ class App(ctk.CTk):
             path = os.path.join(self.temp_dir, filename)
             try:
                 ts = str(int(time.time()))
-                r = requests.get(f"{BASE_RAW_URL}/Scripts/{filename}?t={ts}", headers=self.nocache_headers, timeout=15)
-                if r.status_code == 200:
-                    with open(path, "wb") as f: f.write(r.content)
-                    res = subprocess.run(["powershell.exe", "-ExecutionPolicy", "Bypass", "-File", path],
-                                         capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                    if res.returncode == 0:
-                        self.after(0, lambda: messagebox.showinfo("Успех", "Скрипт выполнен!"))
-                    else:
-                        self.after(0, lambda: messagebox.showerror("Ошибка", f"Лог:\n{res.stderr}"))
+                with requests.Session() as s:
+                    r = s.get(f"{BASE_RAW_URL}/Scripts/{filename}?t={ts}", 
+                              headers=self.nocache_headers, timeout=15)
+                    
+                    if r.status_code == 200:
+                        content = r.text 
+                        # Сохраняем с BOM, чтобы PowerShell не ругался на кодировку
+                        with open(path, "w", encoding="utf-8-sig") as f: 
+                            f.write(content)
+                        
+                        # --- ВОТ ЭТУ ЧАСТЬ МЫ МЕНЯЕМ ---
+                        # Формируем команду, которая заставит Windows показать окно UAC (RunAs)
+                        ps_command = f"Start-Process powershell.exe -ArgumentList '-ExecutionPolicy Bypass -File \"{path}\"' -Verb RunAs -Wait"
+                        
+                        res = subprocess.run(["powershell.exe", "-Command", ps_command], 
+                                             capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                        # ------------------------------
+
+                        if res.returncode == 0:
+                            self.after(0, lambda: messagebox.showinfo("Успех", "Скрипт выполнен!"))
+                        else:
+                            self.after(0, lambda: messagebox.showerror("Ошибка", f"Лог:\n{res.stderr}"))
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Ошибка", f"Сбой: {e}"))
         threading.Thread(target=worker, daemon=True).start()
@@ -320,6 +361,11 @@ class App(ctk.CTk):
         self.scroll_frame.pack_forget()
         self.html_view.pack(expand=True, fill="both", padx=10, pady=10)
         self.html_view.set_html(html)
+        
+        # Включаем возможность взаимодействия
+        self.html_view.configure(state="normal")
+        # Фокусируемся на виджете, чтобы он сразу принимал нажатия клавиш
+        self.html_view.focus_set()
 
     def on_closing(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
