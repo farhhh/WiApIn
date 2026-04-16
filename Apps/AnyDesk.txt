@@ -1,0 +1,3 @@
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/AnyDesk.exe?download=true
+8.36 MB
+Нажмите на загрузку, и дождитесь установки. После на рабочем столе в папке "Приложения WiApIn" найдите установщик энидеска, который вы скачали и запустите.
