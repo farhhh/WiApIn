@@ -1,0 +1,3 @@
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/SteamSetup.exe?download=true
+2.38 mb
+Нажмите на загрузку, и дождитесь установки. После на рабочем столе в папке "Приложения WiApIn" найдите установщик стима, который вы скачали и запустите. Далее следуйте инструкциям установщика.
