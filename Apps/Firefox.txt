@@ -1,0 +1,3 @@
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/Firefox%20Installer.exe?download=true
+501 kb
+Нажмите на загрузку, и дождитесь установки. После на рабочем столе в папке "Приложения WiApIn" найдите установщик хрома, который вы скачали и запустите. Далее следуйте инструкциям установщика.
