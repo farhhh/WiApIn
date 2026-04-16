@@ -1,0 +1,3 @@
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/DiscordSetup.exe?download=true
+123 mb
+Нажмите на загрузку, и дождитесь установки. После на рабочем столе в папке "Приложения WiApIn" найдите установщик дискорда, который вы скачали и запустите. Далее следуйте инструкциям установщика.
