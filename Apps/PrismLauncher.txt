@@ -1,0 +1,3 @@
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/PrismLauncher-Windows-MSVC-Setup-11.0.2.exe?download=true
+24 MB
+Нажмите на загрузку, и дождитесь установки. После на рабочем столе в папке "Приложения WiApIn" найдите установщик призма, который вы скачали и запустите. Далее следуйте инструкциям установщика.
