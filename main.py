@@ -201,33 +201,46 @@ class App(ctk.CTk):
         row = ctk.CTkFrame(self.scroll_frame, fg_color="#333333", height=100)
         row.pack(fill="x", padx=20, pady=10)
         
-        # Иконка и Название (как раньше)
+        # 1. Иконка (загружается в отдельном потоке)
         icon_label = ctk.CTkLabel(row, text="⌛", width=60, height=60)
         icon_label.pack(side="left", padx=15, pady=10)
         threading.Thread(target=self._load_icon, args=(name, icon_label), daemon=True).start()
 
+        # 2. Название приложения
         name_lbl = ctk.CTkLabel(row, text=name, font=("Segoe UI", 16, "bold"), width=200, anchor="w")
         name_lbl.pack(side="left", padx=10)
 
-        # Кнопки
+        # 3. Кнопка "Инструкция"
         info_btn = ctk.CTkButton(row, text="Инструкция", width=110, fg_color="#444444", 
                                 command=lambda n=name: self._show_app_details(n))
         info_btn.pack(side="left", padx=10)
 
+        # 4. Кнопка "Скачать" (или "Открыть")
         down_btn = ctk.CTkButton(row, text="Скачать", width=110, fg_color="#1f538d")
         down_btn.pack(side="right", padx=15)
 
+        # 5. Прогресс-бар (изначально скрыт, пакуется при нажатии "Скачать")
         p_bar = ctk.CTkProgressBar(row, height=4)
         p_bar.set(0)
 
-        # --- ЛОГИКА ПРОВЕРКИ ФАЙЛА (Новое в 1.1.0) ---
+        # --- УНИВЕРСАЛЬНАЯ ПРОВЕРКА НАЛИЧИЯ ФАЙЛА ---
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "Приложения WiApIn")
-        # Пытаемся угадать расширение (в 1.1.0 лучше хранить расширение в TXT)
-        potential_path = os.path.join(desktop_path, f"{name}.exe") 
         
-        if os.path.exists(potential_path):
+        # Список расширений, которые могут быть у твоих файлов
+        extensions = ['.exe', '.zip', '.rar', '.7z', '.msi', '.tar.gz']
+        file_exists = False
+        
+        if os.path.exists(desktop_path):
+            for ext in extensions:
+                if os.path.exists(os.path.join(desktop_path, f"{name}{ext}")):
+                    file_exists = True
+                    break
+        
+        # Если файл найден — меняем вид кнопки на "Открыть"
+        if file_exists:
             down_btn.configure(text="Открыть", fg_color="#28a745")
         
+        # Привязываем команду скачивания (логика внутри сама решит, открывать папку или качать)
         down_btn.configure(command=lambda: self._start_app_download(name, down_btn, p_bar))
 
     def _load_icon(self, name, label):
@@ -277,23 +290,34 @@ class App(ctk.CTk):
 
         def downloader():
             try:
-                # 1. Получаем инфо
+                # 1. Получаем инфо из TXT
                 url_res = requests.get(f"{BASE_RAW_URL}/Apps/{name}.txt?t={int(time.time())}", timeout=5)
                 if url_res.status_code != 200: return
+                
+                # Чистим ссылку от лишних пробелов и переносов
                 download_url = url_res.text.split('\n')[0].strip()
-                filename = f"{name}.exe" 
+                
+                # --- ИСПРАВЛЕНИЕ ТУТ: Определяем расширение из ссылки ---
+                # Извлекаем путь из URL (без параметров ?t=...) и берем расширение
+                pure_url = download_url.split('?')[0]
+                extension = os.path.splitext(pure_url)[1] 
+                
+                # Если вдруг в ссылке нет расширения, по умолчанию ставим .exe
+                if not extension:
+                    extension = ".exe"
+                
+                filename = f"{name}{extension}" 
 
                 dest_dir = os.path.join(os.path.expanduser("~"), "Desktop", "Приложения WiApIn")
                 if not os.path.exists(dest_dir): os.makedirs(dest_dir)
                 target_path = os.path.join(dest_dir, filename)
 
-                # --- ЛОГИКА ДОКАЧКИ ---
+                # --- ДАЛЕЕ ЛОГИКА ОСТАЕТСЯ ПРЕЖНЕЙ ---
                 existing_size = os.path.getsize(target_path) if os.path.exists(target_path) else 0
                 headers = self.nocache_headers.copy()
                 if existing_size > 0:
                     headers['Range'] = f'bytes={existing_size}-'
                 
-                # БЕЗОПАСНОЕ ОБНОВЛЕНИЕ ПЕРЕД СТАРТОМ
                 def start_ui():
                     if button.winfo_exists() and progress_bar.winfo_exists():
                         progress_bar.pack(side="bottom", fill="x", padx=10, pady=(0, 5))
@@ -311,7 +335,6 @@ class App(ctk.CTk):
                     total_size = int(r.headers.get('content-length', 0)) + existing_size
                     downloaded = existing_size
                     
-                    # Еще одна проверка перед сменой текста на "Загрузка"
                     def set_loading_text():
                         if button.winfo_exists():
                             button.configure(text="Загрузка...")
@@ -324,8 +347,6 @@ class App(ctk.CTk):
                                 downloaded += len(chunk)
                                 if total_size > 0:
                                     percent = downloaded / total_size
-                                    
-                                    # БЕЗОПАСНОЕ ОБНОВЛЕНИЕ ПРОГРЕССА
                                     def update_p(p=percent):
                                         if progress_bar.winfo_exists():
                                             progress_bar.set(p)
