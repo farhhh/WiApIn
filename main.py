@@ -41,6 +41,7 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("WiApIn - Помощник по установке")
+        self.iconbitmap("icon.ico")
         self.geometry("1280x800")
         self.temp_dir = tempfile.mkdtemp(prefix="wiapin_cache_")
 
