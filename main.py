@@ -4,6 +4,7 @@ from tkhtmlview import HTMLLabel
 import threading
 import markdown2
 import re
+import sys
 import os
 import tempfile
 import shutil
@@ -20,6 +21,16 @@ GITHUB_USER = "farhhh"
 GITHUB_REPO = "WiApIn"
 BASE_RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main"
 API_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents"
+
+def resource_path(relative_path):
+    """ Получает абсолютный путь к ресурсу, работает для dev и для PyInstaller """
+    try:
+        # PyInstaller создает временную папку и хранит путь в _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 class ScriptInfoWindow(ctk.CTkToplevel):
     def __init__(self, master, title, text):
@@ -41,7 +52,9 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("WiApIn - Помощник по установке")
-        self.iconbitmap("icon.ico")
+        icon_path = resource_path("icon.ico")
+        if os.path.exists(icon_path):
+            self.iconbitmap(icon_path)
         self.geometry("1280x800")
         self.temp_dir = tempfile.mkdtemp(prefix="wiapin_cache_")
 
