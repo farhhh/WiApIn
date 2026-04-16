@@ -1,1 +1,3 @@
-
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/ChromeSetup.exe?download=true
+11.5 mb
+Нажмите на загрузку, и дождитесь установки. После на рабочем столе в папке "Приложения WiApIn" найдите установщик хрома, который вы скачали и запустите. Далее следуйте инструкциям установщика.
