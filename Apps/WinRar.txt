@@ -1,0 +1,3 @@
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/winrar-x64-721b1ru.exe?download=true
+4.02 MB
+Нажмите на загрузку, и дождитесь установки. После на рабочем столе в папке "Приложения WiApIn" найдите установщик винрара, который вы скачали и запустите. Далее следуйте инструкциям установщика.
