@@ -1,0 +1,3 @@
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/Autodesk-3ds-Max-2025.3-Eng.rar?download=true
+4.92 GB
+Инструкция по установке находится в разделе "инструкции" - "Установка 3ds Max". Настоятельно рекомендую следовать именно этой инструкции, и не отклоняться от ее шагов.
