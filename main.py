@@ -54,6 +54,9 @@ class App(ctk.CTk):
             'User-Agent': 'WiApIn-App'
         }
 
+        self.all_apps = [] # Хранилище для полного списка (для поиска)
+
+
         # --- Панель управления ---
         self.sidebar = ctk.CTkFrame(self, width=220, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
@@ -74,6 +77,15 @@ class App(ctk.CTk):
         # --- Контент ---
         self.main_container = ctk.CTkFrame(self, corner_radius=15)
         self.main_container.grid(row=0, column=1, padx=20, pady=20, sticky="nsew")
+
+        self.search_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        self.search_entry = ctk.CTkEntry(self.search_frame, placeholder_text="Поиск приложений...", width=300)
+        self.search_entry.pack(side="left", padx=10)
+        self.search_entry.bind("<KeyRelease>", self._on_search_change)
+
+        self.search_frame.pack_forget()
+
+        self.search_timer = None
             
         self.top_bar = ctk.CTkFrame(self.main_container, fg_color="transparent", height=50)
         self.top_bar.pack(fill="x", padx=10, pady=5)
@@ -145,8 +157,9 @@ class App(ctk.CTk):
 
     def show_apps_section(self):
         self.clear_main_area()
+        self.search_frame.pack(fill="x", padx=20, pady=(10, 0)) # Показываем поиск
         self.scroll_frame.pack(expand=True, fill="both")
-        loading = ctk.CTkLabel(self.scroll_frame, text="⏳ Загрузка списка приложений...")
+        loading = ctk.CTkLabel(self.scroll_frame, text="⏳ Синхронизация репозитория...")
         loading.pack(pady=20)
         threading.Thread(target=self._load_apps_worker, daemon=True).start()
 
@@ -155,52 +168,52 @@ class App(ctk.CTk):
             ts = str(int(time.time()))
             r = requests.get(f"{API_URL}/Apps?t={ts}", headers=self.nocache_headers, timeout=10)
             if r.status_code == 200:
-                # Берем только TXT файлы
-                apps = [f['name'].replace(".txt", "") for f in r.json() if f['name'].endswith('.txt')]
-                self.after(0, lambda: self.render_apps_list(apps))
-            else:
-                self.after(0, lambda: messagebox.showerror("Ошибка", "Не удалось получить список из GitHub/Apps"))
-        except:
-            self.after(0, lambda: messagebox.showerror("Ошибка", "Проблема с сетью"))
+                self.all_apps = [f['name'].replace(".txt", "") for f in r.json() if f['name'].endswith('.txt')]
+                self.after(0, lambda: self.render_apps_list(self.all_apps))
+        except: pass
 
-    def render_apps_list(self, app_names):
-        self.clear_main_area()
-        self.scroll_frame.pack(expand=True, fill="both")
-        ctk.CTkLabel(self.scroll_frame, text="🚀 Магазин приложений", font=("Segoe UI", 24, "bold")).pack(pady=20)
+    def render_apps_list(self, app_names, is_searching=False):
+        # Очищаем только список, не трогая поиск
+        for widget in self.scroll_frame.winfo_children():
+            widget.destroy()
+        
+        if not is_searching:
+            ctk.CTkLabel(self.scroll_frame, text="🚀 Магазин приложений", font=("Segoe UI", 24, "bold")).pack(pady=10)
 
         for name in app_names:
             self._create_app_row(name)
 
     def _create_app_row(self, name):
-        # Контейнер строки
         row = ctk.CTkFrame(self.scroll_frame, fg_color="#333333", height=100)
         row.pack(fill="x", padx=20, pady=10)
         
-        # Иконка (загружается асинхронно)
+        # Иконка и Название (как раньше)
         icon_label = ctk.CTkLabel(row, text="⌛", width=60, height=60)
         icon_label.pack(side="left", padx=15, pady=10)
         threading.Thread(target=self._load_icon, args=(name, icon_label), daemon=True).start()
 
-        # Название
         name_lbl = ctk.CTkLabel(row, text=name, font=("Segoe UI", 16, "bold"), width=200, anchor="w")
         name_lbl.pack(side="left", padx=10)
 
-        # Кнопка Инфо
+        # Кнопки
         info_btn = ctk.CTkButton(row, text="Инструкция", width=110, fg_color="#444444", 
                                 command=lambda n=name: self._show_app_details(n))
         info_btn.pack(side="left", padx=10)
 
-        # Кнопка Скачать
         down_btn = ctk.CTkButton(row, text="Скачать", width=110, fg_color="#1f538d")
         down_btn.pack(side="right", padx=15)
 
-        # Прогресс-бар (внизу фрейма)
-        p_bar = ctk.CTkProgressBar(row, height=4, width=0)
-        p_bar.pack(side="bottom", fill="x", padx=10, pady=(0, 5))
+        p_bar = ctk.CTkProgressBar(row, height=4)
         p_bar.set(0)
-        p_bar.pack_forget() # Прячем до начала загрузки
 
-        # Привязываем загрузку к кнопке
+        # --- ЛОГИКА ПРОВЕРКИ ФАЙЛА (Новое в 1.1.0) ---
+        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "Приложения WiApIn")
+        # Пытаемся угадать расширение (в 1.1.0 лучше хранить расширение в TXT)
+        potential_path = os.path.join(desktop_path, f"{name}.exe") 
+        
+        if os.path.exists(potential_path):
+            down_btn.configure(text="Открыть", fg_color="#28a745")
+        
         down_btn.configure(command=lambda: self._start_app_download(name, down_btn, p_bar))
 
     def _load_icon(self, name, label):
@@ -211,11 +224,20 @@ class App(ctk.CTk):
                 img_data = BytesIO(res.content)
                 img = Image.open(img_data)
                 ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=(60, 60))
-                self.after(0, lambda: label.configure(image=ctk_img, text=""))
+                
+                # Используем безопасную функцию для отрисовки
+                def safe_set():
+                    try:
+                        if label.winfo_exists():
+                            label.configure(image=ctk_img, text="")
+                    except: 
+                        pass # Виджет уже мертв, и бог с ним
+                
+                self.after(0, safe_set)
             else:
-                self.after(0, lambda: label.configure(text="❌"))
+                self.after(0, lambda: label.configure(text="❌") if label.winfo_exists() else None)
         except:
-            self.after(0, lambda: label.configure(text="?"))
+            pass
 
     def _show_app_details(self, name):
         """Парсим TXT и показываем описание"""
@@ -241,67 +263,94 @@ class App(ctk.CTk):
 
         def downloader():
             try:
-                # 1. Получаем ссылку
+                # 1. Получаем инфо
                 url_res = requests.get(f"{BASE_RAW_URL}/Apps/{name}.txt?t={int(time.time())}", timeout=5)
-                url_res.encoding = 'utf-8'
                 if url_res.status_code != 200: return
-                
                 download_url = url_res.text.split('\n')[0].strip()
-                ext = ".exe" if ".exe" in download_url.lower() else ".zip"
-                filename = f"{name}{ext}"
+                filename = f"{name}.exe" 
 
-                desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "Приложения WiApIn")
-                if not os.path.exists(desktop_path):
-                    os.makedirs(desktop_path)
+                dest_dir = os.path.join(os.path.expanduser("~"), "Desktop", "Приложения WiApIn")
+                if not os.path.exists(dest_dir): os.makedirs(dest_dir)
+                target_path = os.path.join(dest_dir, filename)
+
+                # --- ЛОГИКА ДОКАЧКИ ---
+                existing_size = os.path.getsize(target_path) if os.path.exists(target_path) else 0
+                headers = self.nocache_headers.copy()
+                if existing_size > 0:
+                    headers['Range'] = f'bytes={existing_size}-'
                 
-                target_path = os.path.join(desktop_path, filename)
-
-                # Проверка существования виджетов перед начальной настройкой
-                def safe_update_start():
-                    if progress_bar.winfo_exists() and button.winfo_exists():
+                # БЕЗОПАСНОЕ ОБНОВЛЕНИЕ ПЕРЕД СТАРТОМ
+                def start_ui():
+                    if button.winfo_exists() and progress_bar.winfo_exists():
                         progress_bar.pack(side="bottom", fill="x", padx=10, pady=(0, 5))
-                        button.configure(state="disabled", text="Загрузка...")
+                        button.configure(state="disabled", text="Синхронизация...")
 
-                self.after(0, safe_update_start)
+                self.after(0, start_ui)
 
-                with requests.get(download_url, stream=True) as r:
-                    r.raise_for_status()
-                    total_size = int(r.headers.get('content-length', 0))
-                    downloaded = 0
+                mode = 'ab' if existing_size > 0 else 'wb'
+                
+                with requests.get(download_url, stream=True, headers=headers, timeout=15) as r:
+                    if r.status_code == 416: 
+                        self.after(0, lambda: self._finish_download(button, progress_bar, name))
+                        return
+
+                    total_size = int(r.headers.get('content-length', 0)) + existing_size
+                    downloaded = existing_size
                     
-                    with open(target_path, 'wb') as f:
-                        for chunk in r.iter_content(chunk_size=8192):
+                    # Еще одна проверка перед сменой текста на "Загрузка"
+                    def set_loading_text():
+                        if button.winfo_exists():
+                            button.configure(text="Загрузка...")
+                    self.after(0, set_loading_text)
+
+                    with open(target_path, mode) as f:
+                        for chunk in r.iter_content(chunk_size=1024*1024):
                             if chunk:
                                 f.write(chunk)
                                 downloaded += len(chunk)
                                 if total_size > 0:
                                     percent = downloaded / total_size
                                     
-                                    # КРИТИЧЕСКАЯ ПРОВЕРКА ТУТ
-                                    def update_progress(p=percent):
+                                    # БЕЗОПАСНОЕ ОБНОВЛЕНИЕ ПРОГРЕССА
+                                    def update_p(p=percent):
                                         if progress_bar.winfo_exists():
                                             progress_bar.set(p)
-                                    
-                                    self.after(0, update_progress)
+                                    self.after(0, update_p)
 
-                # Финальное обновление
-                def safe_update_end():
-                    if progress_bar.winfo_exists() and button.winfo_exists():
-                        progress_bar.configure(progress_color="#28a745")
-                        button.configure(state="normal", text="Открыть", fg_color="#28a745")
-                        messagebox.showinfo("Готово", f"{name} успешно скачан!")
-
-                self.after(0, safe_update_end)
+                self.after(0, lambda: self._finish_download(button, progress_bar, name))
 
             except Exception as e:
-                def safe_update_error():
+                def on_error():
                     if button.winfo_exists():
                         button.configure(state="normal", text="Скачать")
-                    messagebox.showerror("Ошибка загрузки", f"Не удалось скачать: {e}")
-                
-                self.after(0, safe_update_error)
+                    print(f"Error: {e}")
+                self.after(0, on_error)
 
         threading.Thread(target=downloader, daemon=True).start()
+
+    def _on_search_change(self, event):
+        # Если таймер уже запущен — отменяем его (сброс при новом нажатии)
+        if self.search_timer:
+            self.after_cancel(self.search_timer)
+        
+        # Запускаем новый таймер на 300мс
+        self.search_timer = self.after(300, self._execute_search)
+
+    def _execute_search(self):
+        query = self.search_entry.get().lower()
+        if not query:
+            self.render_apps_list(self.all_apps)
+            return
+            
+        filtered = [name for name in self.all_apps if query in name.lower()]
+        self.render_apps_list(filtered, is_searching=True)
+
+    def _finish_download(self, button, progress_bar, name):
+        if progress_bar.winfo_exists() and button.winfo_exists():
+            progress_bar.set(1)
+            progress_bar.configure(progress_color="#28a745")
+            button.configure(state="normal", text="Открыть", fg_color="#28a745")
+            messagebox.showinfo("WiApIn", f"Загрузка {name} завершена!")
 
     # --- ОСТАЛЬНЫЕ МЕТОДЫ (Скрипты, Инструкции) ---
     # (Здесь остаются твои методы load_scripts_worker, render_scripts_list и т.д. из прошлого кода)
