@@ -1,0 +1,3 @@
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/Revit2025.rar?download=true
+14 GB
+Инструкция по установке находится в разделе "инструкции" - "Установка Revit". Настоятельно рекомендую следовать именно этой инструкции, и не отклоняться от ее шагов.
