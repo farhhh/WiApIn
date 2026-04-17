@@ -73,7 +73,7 @@
 
 На рабочем столе у вас должен был появиться 3д макс. Запускаем его и ждем.
 
-У вас высветиться окно с просьбой указать лицензию. Выбираем сетевую лецензию (Use a network license):
+У вас высветится окно с просьбой указать лицензию. Выбираем сетевую лецензию (Use a network license):
 
 ![ТЕСТТЕСТ](https://raw.githubusercontent.com/farhhh/WiApIn/main/Instructions/images/3dsmaxfin.png)
 
