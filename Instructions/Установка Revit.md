@@ -22,3 +22,4 @@
 
 Дождитесь полной установки. Лучше не закрывайте вкладку "Приложения", пока полностью ревит не установится:
 
+![ТЕСТТЕСТ](https://raw.githubusercontent.com/farhhh/WiApIn/main/Instructions/images/revitstart.png)
