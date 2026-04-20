@@ -1,0 +1,3 @@
+https://huggingface.co/datasets/TheMuramasa/WiApIn-Apps/resolve/main/Adobe%20Illustrator%202026%20v30.3%20Rus.rar?download=true
+3.61 GB
+Инструкция по установке находится в разделе "инструкции" - "Установка Illustrator". Настоятельно рекомендую следовать именно этой инструкции, и не отклоняться от ее шагов.
