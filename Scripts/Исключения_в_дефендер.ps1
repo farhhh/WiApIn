@@ -13,6 +13,12 @@ $paths = @(
     "C:\autodesk",
     "C:\Windows",
     "C:\ProgramData",
+    "D:\",
+    "E:\",
+    "F:\",
+    "G:\",
+    "A:\",
+    "B:\",
     "C:\ProgramData\Package Cache",
     "$env:TEMP"
 )
